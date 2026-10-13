@@ -39,6 +39,9 @@ const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
+const themeBtn = document.getElementById('theme-toggle');
+
+let gridColor;
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 
@@ -169,7 +172,7 @@ function drawBlock(context, x, y, colorIndex, size, alpha) {
 }
 
 function drawGrid() {
-  ctx.strokeStyle = '#22222e';
+  ctx.strokeStyle = gridColor;
   ctx.lineWidth = 0.5;
   for (let c = 1; c < COLS; c++) {
     ctx.beginPath();
@@ -183,6 +186,16 @@ function drawGrid() {
     ctx.lineTo(COLS * BLOCK, r * BLOCK);
     ctx.stroke();
   }
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  gridColor = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();
+  const isLight = theme === 'light';
+  themeBtn.setAttribute('aria-pressed', String(isLight));
+  themeBtn.textContent = isLight ? '☾ Dark' : '☀ Light';
+  try { localStorage.setItem('theme', theme); } catch (e) { /* storage unavailable */ }
+  if (current) draw();
 }
 
 function draw() {
@@ -300,5 +313,14 @@ document.addEventListener('keydown', e => {
 });
 
 restartBtn.addEventListener('click', init);
+
+themeBtn.addEventListener('click', () => {
+  applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+  themeBtn.blur();
+});
+
+let savedTheme = null;
+try { savedTheme = localStorage.getItem('theme'); } catch (e) { /* storage unavailable */ }
+applyTheme(savedTheme === 'light' ? 'light' : 'dark');
 
 init();
