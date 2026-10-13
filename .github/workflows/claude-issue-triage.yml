@@ -1,0 +1,76 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+concurrency:
+  group: issue-triage-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    if: github.event.issue.pull_request == null && !endsWith(github.actor, '[bot]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Analyze issue with Claude
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--allowedTools "Read,Grep,Glob,Write,Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*)"'
+          prompt: |
+            You are triaging issue #${{ github.event.issue.number }} in ${{ github.repository }} (a vanilla JS Tetris game). The issue was just ${{ github.event.action }}.
+
+            Steps:
+            1. Run `gh issue view ${{ github.event.issue.number }} --json title,body,labels,comments` and `gh label list`.
+            2. Read CLAUDE.md, then explore the code (game.js, index.html, style.css) to locate what is relevant to the issue.
+            3. Assign labels with `gh issue edit ${{ github.event.issue.number }} --add-label "<label>"`.
+               - Use ONLY labels that already exist in the repo. Never create new labels.
+               - If the issue was edited, you may `--remove-label` type labels (bug, enhancement, documentation, accessibility, question) that no longer apply.
+               - Never add or remove `good first issue`, `help wanted` or `wontfix` unless already present; never remove labels set by humans other than the type labels above.
+            4. Write a diagnosis to `triage-report.md` in the repo root, in English, with these sections:
+               - `## Summary`: one or two sentences.
+               - `## Classification`: labels applied and why.
+               - `## Likely cause / scope`: hypothesis of the root cause or the feature scope.
+               - `## Affected code`: `file:line` references and function names.
+               - `## Suggested implementation approach`: concrete steps a developer can follow.
+               - `## Open questions`: missing info needed from the reporter (or "None").
+               - `## Complexity`: S, M or L with a one-line reason.
+
+            Rules: do NOT post comments yourself, do NOT modify any file other than `triage-report.md`.
+
+      - name: Publish diagnosis comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- claude-issue-triage -->';
+            const path = 'triage-report.md';
+            if (!fs.existsSync(path)) {
+              core.setFailed('triage-report.md was not generated');
+              return;
+            }
+            const body = `${marker}\n## 🤖 Claude issue triage\n\n${fs.readFileSync(path, 'utf8')}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
