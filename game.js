@@ -14,6 +14,7 @@ const COLORS = [
   '#90caf9', // J - pale blue
   '#ffb74d', // L - orange
   '#ff1744', // Bomb - red
+  '#f06292', // Plus - pink
 ];
 
 const PIECES = [
@@ -26,11 +27,14 @@ const PIECES = [
   [[6,0,0],[6,6,6],[0,0,0]],                  // J
   [[0,0,7],[7,7,7],[0,0,0]],                  // L
   [[8]],                                       // Bomb
+  [[0,9,0],[9,9,9],[0,9,0]],                  // Plus
 ];
 
 const BOMB = 8;
 const BOMB_EVERY = 5;
 const BOMB_CELL_SCORE = 10;
+const PLUS = 9;
+const PLUS_CHANCE = 0.1;
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
 
@@ -56,6 +60,7 @@ function createBoard() {
 }
 
 function randomPiece() {
+  if (Math.random() < PLUS_CHANCE) return makePiece(PLUS);
   return makePiece(Math.floor(Math.random() * 7) + 1);
 }
 
