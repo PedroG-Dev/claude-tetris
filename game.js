@@ -13,6 +13,7 @@ const COLORS = [
   '#e57373', // Z - red
   '#90caf9', // J - pale blue
   '#ffb74d', // L - orange
+  '#ff1744', // Bomb - red
 ];
 
 const PIECES = [
@@ -24,7 +25,12 @@ const PIECES = [
   [[5,5,0],[0,5,5],[0,0,0]],                  // Z
   [[6,0,0],[6,6,6],[0,0,0]],                  // J
   [[0,0,7],[7,7,7],[0,0,0]],                  // L
+  [[8]],                                       // Bomb
 ];
+
+const BOMB = 8;
+const BOMB_EVERY = 5;
+const BOMB_CELL_SCORE = 10;
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
 
@@ -43,14 +49,17 @@ const themeBtn = document.getElementById('theme-toggle');
 
 let gridColor;
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, bombQueued;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
 }
 
 function randomPiece() {
-  const type = Math.floor(Math.random() * 7) + 1;
+  return makePiece(Math.floor(Math.random() * 7) + 1);
+}
+
+function makePiece(type) {
   const shape = PIECES[type].map(row => [...row]);
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
 }
@@ -107,6 +116,7 @@ function clearLines() {
     }
   }
   if (cleared) {
+    if (Math.floor(lines / BOMB_EVERY) < Math.floor((lines + cleared) / BOMB_EVERY)) bombQueued = true;
     lines += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
@@ -138,15 +148,35 @@ function softDrop() {
   }
 }
 
+function explode() {
+  let destroyed = 0;
+  for (let r = current.y - 1; r <= current.y + 1; r++) {
+    for (let c = current.x - 1; c <= current.x + 1; c++) {
+      if (r < 0 || r >= ROWS || c < 0 || c >= COLS) continue;
+      if (board[r][c]) {
+        board[r][c] = 0;
+        destroyed++;
+      }
+    }
+  }
+  score += destroyed * BOMB_CELL_SCORE * level;
+  updateHUD();
+}
+
 function lockPiece() {
-  merge();
-  clearLines();
+  if (current.type === BOMB) {
+    explode();
+  } else {
+    merge();
+    clearLines();
+  }
   spawn();
 }
 
 function spawn() {
   current = next;
-  next = randomPiece();
+  next = bombQueued ? makePiece(BOMB) : randomPiece();
+  bombQueued = false;
   if (collide(current.shape, current.x, current.y)) {
     endGame();
   }
@@ -159,10 +189,41 @@ function updateHUD() {
   levelEl.textContent = level;
 }
 
+function drawBomb(context, x, y, size) {
+  const cx = x * size + size / 2;
+  const cy = y * size + size / 2 + 1;
+  const radius = size / 2 - 4;
+  // body
+  context.beginPath();
+  context.arc(cx, cy, radius, 0, Math.PI * 2);
+  context.fillStyle = '#212121';
+  context.fill();
+  context.lineWidth = 2;
+  context.strokeStyle = COLORS[BOMB];
+  context.stroke();
+  // fuse
+  context.beginPath();
+  context.moveTo(cx + radius * 0.5, cy - radius * 0.8);
+  context.lineTo(cx + radius * 0.9, cy - radius * 1.3);
+  context.lineWidth = 2;
+  context.strokeStyle = '#bcaaa4';
+  context.stroke();
+  // spark
+  context.beginPath();
+  context.arc(cx + radius * 0.9, cy - radius * 1.3, 2, 0, Math.PI * 2);
+  context.fillStyle = '#ffd54f';
+  context.fill();
+}
+
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
   const color = COLORS[colorIndex];
   context.globalAlpha = alpha ?? 1;
+  if (colorIndex === BOMB) {
+    drawBomb(context, x, y, size);
+    context.globalAlpha = 1;
+    return;
+  }
   context.fillStyle = color;
   context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
   // highlight
@@ -278,6 +339,7 @@ function init() {
   gameOver = false;
   dropInterval = 1000;
   dropAccum = 0;
+  bombQueued = false;
   lastTime = performance.now();
   next = randomPiece();
   spawn();
