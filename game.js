@@ -50,10 +50,20 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeBtn = document.getElementById('theme-toggle');
+const startScreen = document.getElementById('start-screen');
+const startBtn = document.getElementById('start-btn');
+const resetRecordsBtn = document.getElementById('reset-records-btn');
+const startRecords = document.getElementById('start-records');
+const startBest = document.getElementById('start-best');
+const gameOverExtra = document.getElementById('gameover-extra');
+const nameEntry = document.getElementById('name-entry');
+const nameInput = document.getElementById('name-input');
+const overlayRecords = document.getElementById('overlay-records');
+const overlayBest = document.getElementById('overlay-best');
 
 let gridColor;
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, bombQueued;
+let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, bombQueued, pendingRecord;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -120,6 +130,7 @@ function clearLines() {
       r++;
     }
   }
+  trackCombo(cleared);
   if (cleared) {
     if (Math.floor(lines / BOMB_EVERY) < Math.floor((lines + cleared) / BOMB_EVERY)) bombQueued = true;
     lines += cleared;
@@ -171,6 +182,7 @@ function explode() {
 function lockPiece() {
   if (current.type === BOMB) {
     explode();
+    trackCombo(0);
   } else {
     merge();
     clearLines();
@@ -303,6 +315,41 @@ function endGame() {
   overlayTitle.textContent = 'GAME OVER';
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
   overlay.classList.remove('hidden');
+  showRecordsOnGameOver();
+}
+
+function showRecordsOnGameOver() {
+  saveRunBest(lines);
+  pendingRecord = scoreQualifies(score);
+  nameEntry.classList.toggle('hidden', !pendingRecord);
+  nameInput.value = DEFAULT_NAME;
+  gameOverExtra.classList.remove('hidden');
+  refreshGameOverRecords(-1);
+  if (pendingRecord) {
+    // Delay focus so keys still being pressed do not overwrite the name
+    setTimeout(() => {
+      if (gameOver && pendingRecord) nameInput.focus();
+    }, 600);
+  }
+}
+
+function refreshGameOverRecords(highlight) {
+  renderRecords(overlayRecords, highlight);
+  renderBest(overlayBest);
+}
+
+function commitRecord() {
+  if (!pendingRecord) return;
+  pendingRecord = false;
+  const idx = addRecord({ name: nameInput.value, score, lines, level });
+  nameEntry.classList.add('hidden');
+  refreshGameOverRecords(idx);
+}
+
+function showStartScreen() {
+  renderRecords(startRecords, -1);
+  renderBest(startBest);
+  startScreen.classList.remove('hidden');
 }
 
 function togglePause() {
@@ -345,6 +392,10 @@ function init() {
   dropInterval = 1000;
   dropAccum = 0;
   bombQueued = false;
+  pendingRecord = false;
+  resetRunStats();
+  gameOverExtra.classList.add('hidden');
+  startScreen.classList.add('hidden');
   lastTime = performance.now();
   next = randomPiece();
   spawn();
@@ -355,6 +406,7 @@ function init() {
 }
 
 document.addEventListener('keydown', e => {
+  if (e.target instanceof HTMLInputElement) return;
   if (e.code === 'KeyP') { togglePause(); return; }
   if (paused || gameOver) return;
   switch (e.code) {
@@ -379,7 +431,23 @@ document.addEventListener('keydown', e => {
   updateHUD();
 });
 
-restartBtn.addEventListener('click', init);
+restartBtn.addEventListener('click', () => {
+  commitRecord();
+  init();
+});
+
+nameEntry.addEventListener('submit', e => {
+  e.preventDefault();
+  commitRecord();
+});
+
+startBtn.addEventListener('click', init);
+
+resetRecordsBtn.addEventListener('click', () => {
+  if (!confirm('Reset all records?')) return;
+  resetRecords();
+  showStartScreen();
+});
 
 themeBtn.addEventListener('click', () => {
   applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
@@ -390,4 +458,7 @@ let savedTheme = null;
 try { savedTheme = localStorage.getItem('theme'); } catch (e) { /* storage unavailable */ }
 applyTheme(savedTheme === 'light' ? 'light' : 'dark');
 
-init();
+// Wait on the start screen: gameOver blocks game keys until Start is clicked
+gameOver = true;
+showStartScreen();
+startBtn.focus();

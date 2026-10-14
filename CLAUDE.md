@@ -14,6 +14,7 @@ Open `index.html` directly, or serve statically: `python3 -m http.server 8000` t
 
 Three files: `index.html` (DOM + two canvases), `style.css`, `game.js` (all logic, ~300 lines, single global scope, `'use strict'`).
 
+- **Records** (`records.js`, loaded before `game.js`): localStorage `tetris-records` (top 5 `{name,score,lines,level,date}`) and `tetris-best` (`{combo,lines}`). Only defines functions/state; `game.js` calls `trackCombo` (in `clearLines`), `resetRunStats` (`init`), `scoreQualifies`/`addRecord`/`saveRunBest` (game over). The game no longer auto-starts: `#start-screen` shows records and its Start button calls `init()`; `gameOver` is preset to `true` to block keys until then.
 - **State**: module-level `let` globals (`board`, `current`, `next`, `score`, `lines`, `level`, `paused`, `gameOver`, `dropInterval`, ...) initialized in `init()`. `init()` is also the restart handler.
 - **Board**: `ROWS x COLS` matrix; `0` = empty, `1-7` = color/piece index into `COLORS`/`PIECES` (index 0 is `null` in both). Piece shapes embed their own color index as cell values.
 - **Pieces**: `{ type, shape, x, y }`; rotation via `rotateCW` (transpose + reverse), `tryRotate` tries kicks `[0,-1,1,-2,2]` horizontally.
