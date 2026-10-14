@@ -357,7 +357,7 @@ function init() {
 
 document.addEventListener('keydown', e => {
   if (shouldIgnoreKey(e)) return;
-  if (e.code === 'KeyP' || e.code === 'Escape') {
+  if ((e.code === 'KeyP' || e.code === 'Escape') && e.target.tagName !== 'SELECT') {
     if (!e.repeat) togglePause();
     return;
   }
