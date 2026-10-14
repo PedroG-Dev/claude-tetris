@@ -12,7 +12,7 @@ Open `index.html` directly, or serve statically: `python3 -m http.server 8000` t
 
 ## Architecture
 
-Three files: `index.html` (DOM + two canvases), `style.css`, `game.js` (all logic, ~300 lines, single global scope, `'use strict'`).
+Four files: `skins.js` (see Skins), `index.html` (DOM + two canvases), `style.css`, `game.js` (all logic, ~300 lines, single global scope, `'use strict'`).
 
 - **State**: module-level `let` globals (`board`, `current`, `next`, `score`, `lines`, `level`, `paused`, `gameOver`, `dropInterval`, ...) initialized in `init()`. `init()` is also the restart handler.
 - **Board**: `ROWS x COLS` matrix; `0` = empty, `1-7` = color/piece index into `COLORS`/`PIECES` (index 0 is `null` in both). Piece shapes embed their own color index as cell values.
@@ -26,3 +26,7 @@ Three files: `index.html` (DOM + two canvases), `style.css`, `game.js` (all logi
 - Canvas `width`/`height` in `index.html` (300x600 board, 120x120 next) are hardcoded; if `COLS`, `ROWS` or `BLOCK` change, update them manually (`COLS*BLOCK` x `ROWS*BLOCK`).
 - Level/speed formula (`max(100, 1000 - (level-1)*90)`) is duplicated: initial `1000` in `init()` and recomputed in `clearLines()`.
 - UI strings in `game.js`/`index.html` are currently a mix of Spanish and English (e.g. `Puntuación`, `Reiniciar`, `SCORE`); per user rules, new code/strings should be English.
+
+## Skins
+
+`skins.js` (loaded before `game.js`) defines `SKINS` (`retro`, `neon`, `pastel`, `pixel`), each `{ label, colors, background, grid, drawBlock }`; `colors` is index-aligned with `COLORS`. `game.js` calls `activeSkin()`, `paintBackground()` and `drawSkinBlock()`; `applySkin(id)` switches live, sets `data-skin` on `<html>` and persists to localStorage key `skin`. Skins with `background`/`grid` null follow the light/dark theme (`--surface`/`--grid`); Neon forces a black board in both themes (canvas fill). `COLORS` in `game.js` is now only the Retro reference; render code uses the skin colors.

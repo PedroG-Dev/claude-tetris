@@ -50,6 +50,7 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeBtn = document.getElementById('theme-toggle');
+const skinSelect = document.getElementById('skin-select');
 
 let gridColor;
 
@@ -204,7 +205,7 @@ function drawBomb(context, x, y, size) {
   context.fillStyle = '#212121';
   context.fill();
   context.lineWidth = 2;
-  context.strokeStyle = COLORS[BOMB];
+  context.strokeStyle = activeSkin().colors[BOMB];
   context.stroke();
   // fuse
   context.beginPath();
@@ -222,23 +223,18 @@ function drawBomb(context, x, y, size) {
 
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
-  const color = COLORS[colorIndex];
   context.globalAlpha = alpha ?? 1;
   if (colorIndex === BOMB) {
     drawBomb(context, x, y, size);
     context.globalAlpha = 1;
     return;
   }
-  context.fillStyle = color;
-  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
-  // highlight
-  context.fillStyle = 'rgba(255,255,255,0.12)';
-  context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  drawSkinBlock(context, x, y, colorIndex, size);
   context.globalAlpha = 1;
 }
 
 function drawGrid() {
-  ctx.strokeStyle = gridColor;
+  ctx.strokeStyle = activeSkin().grid || gridColor;
   ctx.lineWidth = 0.5;
   for (let c = 1; c < COLS; c++) {
     ctx.beginPath();
@@ -261,11 +257,11 @@ function applyTheme(theme) {
   themeBtn.setAttribute('aria-pressed', String(isLight));
   themeBtn.textContent = isLight ? '☾ Dark' : '☀ Light';
   try { localStorage.setItem('theme', theme); } catch (e) { /* storage unavailable */ }
-  if (current) draw();
+  if (current) { draw(); drawNext(); }
 }
 
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  paintBackground(ctx, canvas);
   drawGrid();
 
   // board
@@ -288,7 +284,7 @@ function draw() {
 
 function drawNext() {
   const NB = 30;
-  nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+  paintBackground(nextCtx, nextCanvas);
   const shape = next.shape;
   const offX = Math.floor((4 - shape[0].length) / 2);
   const offY = Math.floor((4 - shape.length) / 2);
@@ -386,8 +382,22 @@ themeBtn.addEventListener('click', () => {
   themeBtn.blur();
 });
 
+function applySkin(id) {
+  id = setActiveSkin(id);
+  document.documentElement.dataset.skin = id;
+  skinSelect.value = id;
+  saveSkin(id);
+  if (current) { draw(); drawNext(); }
+}
+
+skinSelect.addEventListener('change', () => {
+  applySkin(skinSelect.value);
+  skinSelect.blur();
+});
+
 let savedTheme = null;
 try { savedTheme = localStorage.getItem('theme'); } catch (e) { /* storage unavailable */ }
 applyTheme(savedTheme === 'light' ? 'light' : 'dark');
+applySkin(loadSavedSkin());
 
 init();
