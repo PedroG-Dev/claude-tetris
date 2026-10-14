@@ -19,6 +19,7 @@ Three files: `index.html` (DOM + two canvases), `style.css`, `game.js` (all logi
 - **Pieces**: `{ type, shape, x, y }`; rotation via `rotateCW` (transpose + reverse), `tryRotate` tries kicks `[0,-1,1,-2,2]` horizontally.
 - **Flow**: `loop` (rAF) accumulates `dropAccum`; on `dropInterval` it moves down or calls `lockPiece` -> `merge` -> `clearLines` -> `spawn`. `spawn` calls `endGame` if the new piece collides. Pause/game over cancel the rAF (`animId`); resuming calls `loop` manually.
 - **Input**: single `keydown` listener (uses `e.code`); `P` toggles pause, other keys ignored while paused/game over.
+- **Pause menu** (`pause-menu.js`, loaded before `game.js`): P/Escape pause shows `#pause-menu` (Resume, Restart, controls toggle, starting-level select 1-10). Owns `startLevel`, `dropIntervalForLevel`, `levelForLines`; `init()` starts at `startLevel`. Keydown ignores `e.repeat` after resume (`resumeGuard`). Game over still uses `#overlay`.
 - **Rendering**: `draw()` repaints everything each frame (grid, board, ghost at alpha 0.2, current piece); `drawNext()` renders the preview only on `spawn`.
 
 ## Gotchas
